@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fake Tweet Pro - Guardar Offline</title>
+  <title>Fake Tweet Pro - Galeria Automática</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
@@ -58,29 +58,28 @@
     </div>
   </div>
 
-  <!-- Botão 1: Gerar -->
+  <!-- PASSO 1: GERAR -->
   <div class="mt-8 no-export w-full max-w-[320px]">
     <button id="btn-generate" onclick="generatePNG()" class="w-full py-4 bg-black text-white rounded-full font-bold text-base shadow-lg active:scale-95 transition">
-      1. GERAR IMAGEM
+      GERAR IMAGEM
     </button>
   </div>
 
-  <!-- Área de Resultado -->
   <div id="generated-image-container" class="mt-8 w-full max-w-[550px] flex flex-col items-center"></div>
 
-  <!-- Botão 2: Guardar (Corrigido para evitar o erro) -->
+  <!-- PASSO 2: GUARDAR (Ficará visível após gerar) -->
   <div id="save-area" class="mt-6 no-export w-full max-w-[320px] hidden">
-    <button onclick="saveDirect()" class="w-full py-4 bg-green-600 text-white rounded-full font-bold text-base shadow-xl active:scale-95 transition flex items-center justify-center gap-3">
+    <button onclick="autoSave()" class="w-full py-4 bg-green-600 text-white rounded-full font-bold text-base shadow-xl active:scale-95 transition flex items-center justify-center gap-3">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-      2. GUARDAR NA GALERIA
+      GUARDAR NA GALERIA
     </button>
-    <p id="status-msg" class="text-[10px] text-center mt-3 text-gray-500 font-medium"></p>
+    <p id="hint" class="text-[10px] text-center mt-3 text-gray-500"></p>
   </div>
 
   <script>
     let isVerified = false;
-    let lastImgData = null;
-    let lastBlob = null;
+    let currentImgData = null;
+    let currentBlob = null;
 
     function toggleVerified() {
       isVerified = !isVerified;
@@ -101,49 +100,50 @@
       if (document.activeElement) document.activeElement.blur();
       const container = document.getElementById('generated-image-container');
       const saveArea = document.getElementById('save-area');
-      container.innerHTML = '<p class="text-gray-500 font-bold text-xs animate-pulse">A gerar...</p>';
-      
+      container.innerHTML = '<p class="text-gray-500 font-bold text-xs animate-pulse">A processar...</p>';
+
       try {
         const canvas = await html2canvas(document.getElementById('tweet-card'), { 
           scale: 3, backgroundColor: "#ffffff", useCORS: true 
         });
-        lastImgData = canvas.toDataURL("image/png");
-        lastBlob = await (await fetch(lastImgData)).blob();
+        currentImgData = canvas.toDataURL("image/png");
+        currentBlob = await (await fetch(currentImgData)).blob();
 
-        container.innerHTML = `<img src="${lastImgData}">`;
+        container.innerHTML = `<img src="${currentImgData}">`;
         saveArea.classList.remove('hidden');
-        document.getElementById('status-msg').innerText = "";
+        window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
       } catch (err) {
-        container.innerHTML = '<p class="text-red-500">Erro ao gerar.</p>';
+        container.innerHTML = '<p class="text-red-500">Erro ao criar imagem.</p>';
       }
     }
 
-    async function saveDirect() {
-      const msg = document.getElementById('status-msg');
-      
-      // Tentar o método de partilha primeiro (o melhor para Galeria)
-      if (navigator.share && navigator.canShare) {
-        const file = new File([lastBlob], "tweet.png", { type: "image/png" });
-        if (navigator.canShare({ files: [file] })) {
-          try {
-            await navigator.share({ files: [file] });
-            msg.innerText = "✅ Guardado!";
-            return;
-          } catch (e) {}
+    async function autoSave() {
+      const file = new File([currentBlob], "tweet.png", { type: "image/png" });
+
+      // 1. Tentar o método de partilha (Melhor para iOS e Android moderno)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: 'Tweet',
+            text: 'Imagem guardada'
+          });
+          return;
+        } catch (e) {
+          // Se o utilizador cancelar a partilha, não faz nada
         }
       }
 
-      // Se falhar ou não for suportado, faz o DOWNLOAD direto para evitar o erro
+      // 2. Método de Download Automático (Melhor para Android)
       const link = document.createElement('a');
-      link.href = lastImgData;
-      link.download = 'tweet.png';
+      link.href = currentImgData;
+      link.download = 'tweet-' + Date.now() + '.png';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      msg.innerHTML = "⬇️ Download feito! Se não estiver na galeria,<br>segura na imagem acima e escolhe 'Guardar'.";
+
+      document.getElementById('hint').innerText = "Verifica a tua pasta de Downloads ou a Galeria!";
     }
   </script>
 </body>
-      </html>
-      
+</html>
