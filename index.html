@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Fake Tweet Pro - Gerar e Guardar</title>
+  <title>Fake Tweet Pro - Guardar Offline</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
   <style>
@@ -65,20 +65,22 @@
     </button>
   </div>
 
-  <!-- Área onde a imagem aparece -->
+  <!-- Área de Resultado -->
   <div id="generated-image-container" class="mt-8 w-full max-w-[550px] flex flex-col items-center"></div>
 
-  <!-- Botão 2: Guardar (Só aparece depois de gerar) -->
+  <!-- Botão 2: Guardar (Corrigido para evitar o erro) -->
   <div id="save-area" class="mt-6 no-export w-full max-w-[320px] hidden">
-    <button onclick="saveNative()" class="w-full py-4 bg-green-600 text-white rounded-full font-bold text-base shadow-xl active:scale-95 transition flex items-center justify-center gap-3">
+    <button onclick="saveDirect()" class="w-full py-4 bg-green-600 text-white rounded-full font-bold text-base shadow-xl active:scale-95 transition flex items-center justify-center gap-3">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
       2. GUARDAR NA GALERIA
     </button>
+    <p id="status-msg" class="text-[10px] text-center mt-3 text-gray-500 font-medium"></p>
   </div>
 
   <script>
     let isVerified = false;
-    let lastGeneratedFile = null;
+    let lastImgData = null;
+    let lastBlob = null;
 
     function toggleVerified() {
       isVerified = !isVerified;
@@ -100,45 +102,48 @@
       const container = document.getElementById('generated-image-container');
       const saveArea = document.getElementById('save-area');
       container.innerHTML = '<p class="text-gray-500 font-bold text-xs animate-pulse">A gerar...</p>';
-      saveArea.classList.add('hidden');
-
+      
       try {
         const canvas = await html2canvas(document.getElementById('tweet-card'), { 
           scale: 3, backgroundColor: "#ffffff", useCORS: true 
         });
-        const imgData = canvas.toDataURL("image/png");
-        
-        // Criar o ficheiro para partilha
-        const blob = await (await fetch(imgData)).blob();
-        lastGeneratedFile = new File([blob], "tweet.png", { type: "image/png" });
+        lastImgData = canvas.toDataURL("image/png");
+        lastBlob = await (await fetch(lastImgData)).blob();
 
-        // Mostrar a imagem
-        container.innerHTML = `<img src="${imgData}" class="animate-in fade-in duration-500">`;
-        
-        // MOSTRAR O BOTÃO DE GUARDAR SÓ AGORA
+        container.innerHTML = `<img src="${lastImgData}">`;
         saveArea.classList.remove('hidden');
-        saveArea.scrollIntoView({ behavior: 'smooth' });
-
+        document.getElementById('status-msg').innerText = "";
       } catch (err) {
-        container.innerHTML = '<p class="text-red-500">Erro ao gerar imagem.</p>';
+        container.innerHTML = '<p class="text-red-500">Erro ao gerar.</p>';
       }
     }
 
-    async function saveNative() {
-      if (!lastGeneratedFile) return;
-
-      if (navigator.canShare && navigator.canShare({ files: [lastGeneratedFile] })) {
-        try {
-          await navigator.share({ files: [lastGeneratedFile], title: 'Tweet' });
-        } catch (e) {
-          console.log("Partilha cancelada.");
+    async function saveDirect() {
+      const msg = document.getElementById('status-msg');
+      
+      // Tentar o método de partilha primeiro (o melhor para Galeria)
+      if (navigator.share && navigator.canShare) {
+        const file = new File([lastBlob], "tweet.png", { type: "image/png" });
+        if (navigator.canShare({ files: [file] })) {
+          try {
+            await navigator.share({ files: [file] });
+            msg.innerText = "✅ Guardado!";
+            return;
+          } catch (e) {}
         }
-      } else {
-        // Fallback: Se não suportar partilha, avisa para o toque longo
-        alert("O teu navegador não permite guardar direto. Pressiona a imagem e escolhe 'Guardar Imagem'.");
       }
+
+      // Se falhar ou não for suportado, faz o DOWNLOAD direto para evitar o erro
+      const link = document.createElement('a');
+      link.href = lastImgData;
+      link.download = 'tweet.png';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      msg.innerHTML = "⬇️ Download feito! Se não estiver na galeria,<br>segura na imagem acima e escolhe 'Guardar'.";
     }
   </script>
 </body>
-  </html>
-                
+      </html>
+      
